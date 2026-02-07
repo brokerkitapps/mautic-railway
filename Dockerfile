@@ -1,16 +1,4 @@
-FROM mautic/mautic:5.2-apache
-
-# Fix Apache MPM conflict: ensure only mpm_prefork is enabled (required by mod_php)
-RUN a2dismod mpm_event 2>/dev/null || true \
-    && a2dismod mpm_worker 2>/dev/null || true \
-    && a2enmod mpm_prefork 2>/dev/null || true
-
-# Fix GD library: reinstall with current libavif dependency
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libavif-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp --with-avif \
-    && docker-php-ext-install -j$(nproc) gd \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM mautic/mautic:5.2.8-20250908-apache
 
 # Ensure required directories exist (Railway doesn't honor Docker VOLUME declarations)
 RUN mkdir -p /var/www/html/var/logs \
