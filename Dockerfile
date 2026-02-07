@@ -7,6 +7,9 @@ RUN mkdir -p /var/www/html/var/logs \
     /var/www/html/docroot/media/images \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
 
+# Fix Apache MPM conflict: disable mpm_event so mpm_prefork (required by mod_php) is the only one
+RUN a2dismod mpm_event 2>/dev/null; a2enmod mpm_prefork 2>/dev/null; true
+
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
 ARG MAUTIC_DB_USER
