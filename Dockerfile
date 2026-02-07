@@ -1,5 +1,12 @@
 FROM mautic/mautic:5.2.8-20250908-apache
 
+# Fix Apache MPM conflict: base image loads both mpm_prefork and mpm_event
+RUN a2dismod mpm_event 2>/dev/null || true
+
+# Fix broken GD extension: install missing libavif dependency
+RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Ensure required directories exist (Railway doesn't honor Docker VOLUME declarations)
 RUN mkdir -p /var/www/html/var/logs \
     /var/www/html/config \
