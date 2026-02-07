@@ -11,11 +11,13 @@ RUN mkdir -p /var/www/html/var/logs \
     /var/www/html/docroot/media/images \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
 
-# Fix Apache MPM conflict at runtime (build-time fixes get overwritten)
-# This wrapper removes mpm_event before calling the original entrypoint
-RUN mv /entrypoint.sh /entrypoint-original.sh \
-    && printf '#!/bin/bash\nset -e\nrm -f /etc/apache2/mods-enabled/mpm_event.conf /etc/apache2/mods-enabled/mpm_event.load\nrm -f /etc/apache2/mods-enabled/mpm_worker.conf /etc/apache2/mods-enabled/mpm_worker.load\nexec /entrypoint-original.sh "$@"\n' > /entrypoint.sh \
-    && chmod +x /entrypoint.sh
+# Custom entrypoint wrapper:
+# 1. Fixes Apache MPM conflict (removes mpm_event at runtime)
+# 2. Injects site_url into local.php for cron/worker containers (Railway has no shared volumes)
+# 3. Aliases MAUTIC_DB_NAME -> MAUTIC_DB_DATABASE (template expects the latter)
+RUN mv /entrypoint.sh /entrypoint-original.sh
+COPY entrypoint-wrapper.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
