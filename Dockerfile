@@ -1,7 +1,13 @@
 FROM mautic/mautic:5.2.8-20250908-apache
 
-# Fix Apache MPM conflict: base image loads both mpm_prefork and mpm_event
-RUN a2dismod mpm_event 2>/dev/null || true
+# Fix Apache MPM conflict: forcefully remove all non-prefork MPMs
+RUN a2dismod mpm_event 2>&1 || true; \
+    a2dismod mpm_worker 2>&1 || true; \
+    rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*; \
+    a2enmod mpm_prefork 2>&1 || true; \
+    grep -r "LoadModule mpm_" /etc/apache2/ 2>/dev/null; \
+    sed -i '/LoadModule mpm_event_module/d' /etc/apache2/apache2.conf 2>/dev/null || true; \
+    sed -i '/LoadModule mpm_worker_module/d' /etc/apache2/apache2.conf 2>/dev/null || true
 
 # Fix broken GD extension: install missing libavif dependency
 RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
