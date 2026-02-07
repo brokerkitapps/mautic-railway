@@ -1,5 +1,12 @@
 FROM mautic/mautic:latest
 
+# Ensure required directories exist (Railway doesn't honor Docker VOLUME declarations)
+RUN mkdir -p /var/www/html/var/logs \
+    /var/www/html/config \
+    /var/www/html/docroot/media/files \
+    /var/www/html/docroot/media/images \
+    && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
+
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
 ARG MAUTIC_DB_USER
