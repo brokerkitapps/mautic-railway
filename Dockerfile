@@ -1,17 +1,18 @@
 FROM mautic/mautic:5.2.8-20250908-apache
 
-# Fix Apache MPM conflict: forcefully remove all non-prefork MPMs
+# Fix broken GD extension: install missing libavif dependency
+RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Fix Apache MPM conflict AFTER all apt installs (apt can re-enable mpm_event)
 RUN a2dismod mpm_event 2>&1 || true; \
     a2dismod mpm_worker 2>&1 || true; \
     rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*; \
     a2enmod mpm_prefork 2>&1 || true; \
-    grep -r "LoadModule mpm_" /etc/apache2/ 2>/dev/null; \
-    sed -i '/LoadModule mpm_event_module/d' /etc/apache2/apache2.conf 2>/dev/null || true; \
-    sed -i '/LoadModule mpm_worker_module/d' /etc/apache2/apache2.conf 2>/dev/null || true
-
-# Fix broken GD extension: install missing libavif dependency
-RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
-    && rm -rf /var/lib/apt/lists/*
+    find /etc/apache2 -name "*.conf" -o -name "*.load" | xargs grep -l "mpm_event\|mpm_worker" 2>/dev/null | while read f; do \
+        sed -i '/mpm_event\|mpm_worker/d' "$f"; \
+    done; \
+    echo "=== Remaining MPM config ===" && grep -r "mpm_" /etc/apache2/mods-enabled/ 2>/dev/null || echo "No MPM in mods-enabled"
 
 # Ensure required directories exist (Railway doesn't honor Docker VOLUME declarations)
 RUN mkdir -p /var/www/html/var/logs \
