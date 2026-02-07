@@ -4,20 +4,18 @@ FROM mautic/mautic:5.2.8-20250908-apache
 RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix Apache MPM conflict: completely remove mpm_event and mpm_worker
-# Must run AFTER apt-get install which can re-enable them
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.conf /etc/apache2/mods-enabled/mpm_event.load \
-          /etc/apache2/mods-enabled/mpm_worker.conf /etc/apache2/mods-enabled/mpm_worker.load \
-          /etc/apache2/mods-available/mpm_event.conf /etc/apache2/mods-available/mpm_event.load \
-          /etc/apache2/mods-available/mpm_worker.conf /etc/apache2/mods-available/mpm_worker.load \
-    && a2enmod mpm_prefork 2>&1 || true
-
 # Ensure required directories exist (Railway doesn't honor Docker VOLUME declarations)
 RUN mkdir -p /var/www/html/var/logs \
     /var/www/html/config \
     /var/www/html/docroot/media/files \
     /var/www/html/docroot/media/images \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
+
+# Fix Apache MPM conflict at runtime (build-time fixes get overwritten)
+# This wrapper removes mpm_event before calling the original entrypoint
+RUN mv /entrypoint.sh /entrypoint-original.sh \
+    && printf '#!/bin/bash\nset -e\nrm -f /etc/apache2/mods-enabled/mpm_event.conf /etc/apache2/mods-enabled/mpm_event.load\nrm -f /etc/apache2/mods-enabled/mpm_worker.conf /etc/apache2/mods-enabled/mpm_worker.load\nexec /entrypoint-original.sh "$@"\n' > /entrypoint.sh \
+    && chmod +x /entrypoint.sh
 
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
