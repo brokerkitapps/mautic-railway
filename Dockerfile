@@ -5,10 +5,12 @@ FROM mautic/mautic:5.2.8-20250908-apache
 # - interned_strings_buffer: 8 -> 32 (default exhausted at 8MB with 4074 cached scripts)
 # - max_accelerated_files: 10000 -> 20000 (Symfony recommendation, currently 4074 scripts)
 # - revalidate_freq: 2 -> 60 (reduce filesystem stat() calls in Docker)
-RUN echo 'opcache.memory_consumption=256\n\
-opcache.interned_strings_buffer=32\n\
-opcache.max_accelerated_files=20000\n\
-opcache.revalidate_freq=60' > /usr/local/etc/php/conf.d/zzz-opcache-tuning.ini
+RUN printf '%s\n' \
+    'opcache.memory_consumption=256' \
+    'opcache.interned_strings_buffer=32' \
+    'opcache.max_accelerated_files=20000' \
+    'opcache.revalidate_freq=60' \
+    > /usr/local/etc/php/conf.d/zzz-opcache-tuning.ini
 
 # Fix broken GD extension: install missing libavif dependency
 RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
