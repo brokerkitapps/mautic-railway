@@ -50,5 +50,24 @@ if [ -n "$MAUTIC_URL" ] && [ -f "$CONFIG_DIR/local.php" ]; then
     fi
 fi
 
+# Add HubSpot fetchleads cron job for the cron container
+# This syncs contacts modified in HubSpot to Mautic every 15 minutes.
+# The base image creates /opt/mautic/cron/mautic on first run from a template.
+# We inject our custom entry into the template so it gets picked up.
+if [ "$DOCKER_MAUTIC_ROLE" = "mautic_cron" ]; then
+    CRON_TEMPLATE="/templates/mautic_cron"
+    FETCHLEADS_ENTRY="3,18,33,48 * * * * php /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot > /tmp/stdout 2>&1"
+    if [ -f "$CRON_TEMPLATE" ] && ! grep -q "fetchleads" "$CRON_TEMPLATE"; then
+        echo "$FETCHLEADS_ENTRY" >> "$CRON_TEMPLATE"
+        echo "[wrapper] Added fetchleads cron entry to template"
+    fi
+    # Also inject into active crontab if it already exists (container restart)
+    ACTIVE_CRON="/opt/mautic/cron/mautic"
+    if [ -f "$ACTIVE_CRON" ] && ! grep -q "fetchleads" "$ACTIVE_CRON"; then
+        echo "$FETCHLEADS_ENTRY" >> "$ACTIVE_CRON"
+        echo "[wrapper] Added fetchleads cron entry to active crontab"
+    fi
+fi
+
 echo "[wrapper] Calling original entrypoint..."
 exec /entrypoint-original.sh "$@"
