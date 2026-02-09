@@ -23,6 +23,9 @@ RUN mkdir -p /var/www/html/var/logs \
     /var/www/html/docroot/media/images \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
 
+# Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
+RUN echo '3,18,33,48 * * * * php /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot > /tmp/stdout 2>&1' >> /templates/mautic_cron
+
 # Custom entrypoint wrapper:
 # 1. Fixes Apache MPM conflict (removes mpm_event at runtime)
 # 2. Injects site_url into local.php for cron/worker containers (Railway has no shared volumes)
