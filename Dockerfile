@@ -24,7 +24,7 @@ RUN mkdir -p /var/www/html/var/logs \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
 
 # Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
-RUN echo '3,18,33,48 * * * * php /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot > /tmp/stdout 2>&1' >> /templates/mautic_cron
+RUN echo '3,18,33,48 * * * * php -d memory_limit=1024M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=200 > /tmp/stdout 2>&1' >> /templates/mautic_cron
 
 # Custom entrypoint wrapper:
 # 1. Fixes Apache MPM conflict (removes mpm_event at runtime)
@@ -54,3 +54,4 @@ ENV MAUTIC_URL=$MAUTIC_URL
 ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_DATE_TIMEZONE='UTC'
+ENV PHP_INI_VALUE_MEMORY_LIMIT='1024M'
