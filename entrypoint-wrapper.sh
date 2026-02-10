@@ -50,12 +50,6 @@ if [ -n "$MAUTIC_URL" ] && [ -f "$CONFIG_DIR/local.php" ]; then
     fi
 fi
 
-# TEMPORARY: Dump secret_key from local.php for extraction (remove after capturing value)
-if [ -f "$CONFIG_DIR/local.php" ]; then
-    SECRET_FROM_FILE=$(php -r "include '${CONFIG_DIR}/local.php'; echo \$parameters['secret_key'] ?? 'NOT_FOUND';")
-    echo "[wrapper] SECRET_KEY_DUMP=${SECRET_FROM_FILE}"
-fi
-
 # Inject secret_key into local.php if MAUTIC_SECRET_KEY env var is set
 # Required for cron/worker containers that don't share the web container's persistent volume
 if [ -n "$MAUTIC_SECRET_KEY" ] && [ -f "$CONFIG_DIR/local.php" ]; then
