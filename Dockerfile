@@ -26,6 +26,10 @@ RUN mkdir -p /var/www/html/var/logs \
 # Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
 RUN echo '3,18,33,48 * * * * php -d memory_limit=1024M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=200 > /tmp/stdout 2>&1' >> /templates/mautic_cron
 
+# BrokerKit email theme for GrapesJS builder (MJML)
+COPY themes/brokerkit /var/www/html/docroot/themes/brokerkit
+RUN chown -R www-data:www-data /var/www/html/docroot/themes/brokerkit
+
 # Custom entrypoint wrapper:
 # 1. Fixes Apache MPM conflict (removes mpm_event at runtime)
 # 2. Injects site_url into local.php for cron/worker containers (Railway has no shared volumes)

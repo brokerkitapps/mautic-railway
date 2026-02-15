@@ -1,0 +1,7 @@
+{
+  "name": "BrokerKit",
+  "author": "BrokerKit Apps",
+  "authorUrl": "https://brokerkit.com",
+  "features": ["email"],
+  "builder": ["grapesjsbuilder"]
+}
