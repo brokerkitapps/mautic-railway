@@ -99,7 +99,7 @@ def get_existing_mautic_ids(hubspot_ids: list[str]) -> dict[str, str | None]:
                 "inputs": [{"id": str(hid)} for hid in batch],
             },
         )
-        if resp.status_code == 200:
+        if resp.status_code in (200, 207):
             for record in resp.json().get("results", []):
                 hs_id = record.get("id")
                 mautic_id = record.get("properties", {}).get("mautic_contact_id")
@@ -139,9 +139,14 @@ def sync_batch_to_hubspot(updates: list[dict]) -> tuple[int, int]:
             },
         )
 
-        if resp.status_code == 200:
-            results = resp.json().get("results", [])
+        if resp.status_code in (200, 207):
+            data = resp.json()
+            results = data.get("results", [])
+            errors = data.get("errors", [])
             success += len(results)
+            fail += len(errors)
+            if errors:
+                logger.warning("Batch partial failure: %d ok, %d errors", len(results), len(errors))
         else:
             fail += len(batch)
             logger.error("Batch update failed: %d %s", resp.status_code, resp.text[:200])
