@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python sync_mautic_ids_to_hubspot.py"
+cronSchedule = "*/15 * * * *"
