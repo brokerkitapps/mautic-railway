@@ -15,6 +15,7 @@ Environment variables (set on Railway service):
   MAUTIC_BASE_URL - Mautic instance URL (e.g., https://marketing.brokerkit.app)
   MAUTIC_USERNAME - Mautic API username
   MAUTIC_PASSWORD - Mautic API password
+  SLACK_WEBHOOK_URL - (optional) Slack incoming webhook for failure/success alerts
 """
 
 import logging
@@ -36,10 +37,21 @@ HUBSPOT_TOKEN = os.getenv("HUBSPOT_PRIVATE_APP_ACCESS_TOKEN", "")
 MAUTIC_BASE_URL = os.getenv("MAUTIC_BASE_URL", "").rstrip("/")
 MAUTIC_USERNAME = os.getenv("MAUTIC_USERNAME", "")
 MAUTIC_PASSWORD = os.getenv("MAUTIC_PASSWORD", "")
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
 
 HUBSPOT_BATCH_SIZE = 100  # HubSpot batch update limit
 MAUTIC_PAGE_SIZE = 100
 HUBSPOT_RATE_LIMIT_DELAY = 0.12  # ~8 requests/sec to stay under 100/10s
+
+
+def notify_slack(message: str) -> None:
+    """Post a notification to Slack via webhook. Silently skips if not configured."""
+    if not SLACK_WEBHOOK_URL:
+        return
+    try:
+        requests.post(SLACK_WEBHOOK_URL, json={"text": message}, timeout=10)
+    except Exception:
+        logger.warning("Failed to send Slack notification")
 
 
 def ensure_hubspot_property() -> bool:
@@ -156,11 +168,15 @@ def sync_batch_to_hubspot(updates: list[dict]) -> tuple[int, int]:
     return success, fail
 
 
-def incremental_sync(*, skip_existing: bool = False) -> int:
+def incremental_sync(*, skip_existing: bool = False, since_minutes: int = 0) -> int:
     """Query Mautic for contacts with hubspot_contact_id, sync to HubSpot.
 
     Returns exit code: 0 for success, 1 for errors.
     """
+    if since_minutes > 0:
+        logger.info("Incremental mode: fetching contacts modified in last %d minutes", since_minutes)
+    else:
+        logger.info("Full scan mode: fetching all Mautic contacts")
     logger.info("Querying Mautic for contacts with hubspot_contact_id...")
 
     updates = []
@@ -168,14 +184,18 @@ def incremental_sync(*, skip_existing: bool = False) -> int:
     seen_ids: set[int] = set()
 
     while True:
+        params: dict[str, str | int] = {
+            "limit": MAUTIC_PAGE_SIZE,
+            "start": start,
+            "orderBy": "id",
+            "orderByDir": "ASC",
+        }
+        if since_minutes > 0:
+            params["search"] = f"dateModified:>=-{since_minutes}minutes"
+
         resp = requests.get(
             f"{MAUTIC_BASE_URL}/api/contacts",
-            params={
-                "limit": MAUTIC_PAGE_SIZE,
-                "start": start,
-                "orderBy": "id",
-                "orderByDir": "ASC",
-            },
+            params=params,
             auth=(MAUTIC_USERNAME, MAUTIC_PASSWORD),
         )
 
@@ -234,7 +254,18 @@ def incremental_sync(*, skip_existing: bool = False) -> int:
 
     logger.info("Results: success=%d, failed=%d, total=%d", success, fail, success + fail)
 
-    return 1 if fail > 0 else 0
+    if fail > 0:
+        notify_slack(
+            f":x: mautic-id-sync failed: {success} synced, {fail} failed"
+        )
+        return 1
+
+    if success > 0:
+        notify_slack(
+            f":white_check_mark: mautic-id-sync: {success} contacts synced successfully"
+        )
+
+    return 0
 
 
 def main() -> None:
@@ -242,16 +273,19 @@ def main() -> None:
 
     if not HUBSPOT_TOKEN:
         logger.error("HUBSPOT_PRIVATE_APP_ACCESS_TOKEN not set")
+        notify_slack(":x: mautic-id-sync failed: HUBSPOT_PRIVATE_APP_ACCESS_TOKEN not set")
         sys.exit(1)
 
     if not MAUTIC_BASE_URL or not MAUTIC_USERNAME:
         logger.error("MAUTIC_BASE_URL, MAUTIC_USERNAME, MAUTIC_PASSWORD required")
+        notify_slack(":x: mautic-id-sync failed: Mautic credentials not set")
         sys.exit(1)
 
     if not ensure_hubspot_property():
+        notify_slack(":x: mautic-id-sync failed: could not ensure HubSpot property")
         sys.exit(1)
 
-    exit_code = incremental_sync(skip_existing=True)
+    exit_code = incremental_sync(skip_existing=True, since_minutes=20)
 
     logger.info("=== Sync complete (exit code: %d) ===", exit_code)
     sys.exit(exit_code)
