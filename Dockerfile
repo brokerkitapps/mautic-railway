@@ -32,6 +32,8 @@ RUN echo '3,18,33,48 * * * * php -d memory_limit=1024M /var/www/html/bin/console
 # false so the API respects DNC while keeping email_type as transactional (allows re-sends
 # to the same contact across workflow runs). See V3 test in brokerboost plan doc.
 RUN sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" \
+    /var/www/html/docroot/app/bundles/EmailBundle/Controller/Api/EmailApiController.php \
+    && grep -q "'ignoreDNC'         => false" \
     /var/www/html/docroot/app/bundles/EmailBundle/Controller/Api/EmailApiController.php
 
 # BrokerKit email theme for GrapesJS builder (MJML)
