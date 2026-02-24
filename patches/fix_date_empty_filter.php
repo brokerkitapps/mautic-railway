@@ -35,6 +35,7 @@ $patches = [
                     "                break;",
             ],
             // notEmpty: CompositeExpression(AND, [isNotNull, neq('')]) → isNotNull only
+            // Note: upstream has a blank line between ); and break; in this case
             [
                 'search'  => "case 'notEmpty':\n" .
                     "                \$expression = new CompositeExpression(CompositeExpression::TYPE_AND,\n" .
@@ -43,6 +44,7 @@ $patches = [
                     "                        \$queryBuilder->expr()->neq(\$tableAlias.'.'.\$filter->getField(), \$queryBuilder->expr()->literal('')),\n" .
                     "                    ]\n" .
                     "                );\n" .
+                    "\n" .
                     "                break;",
                 'replace' => "case 'notEmpty':\n" .
                     "                \$expression = \$queryBuilder->expr()->isNotNull(\$tableAlias.'.'.\$filter->getField());\n" .
@@ -97,11 +99,12 @@ foreach ($patches as $patch) {
     $content = file_get_contents($file);
     $applied = 0;
 
-    foreach ($patch['replacements'] as $r) {
+    foreach ($patch['replacements'] as $i => $r) {
         $count = 0;
         $content = str_replace($r['search'], $r['replace'], $content, $count);
         if ($count === 0) {
-            fwrite(STDERR, "WARNING: Pattern not found in $file (may already be patched)\n");
+            fwrite(STDERR, "ERROR: Pattern #$i not found in $file\n");
+            $errors++;
         }
         $applied += $count;
     }
@@ -111,7 +114,6 @@ foreach ($patches as $patch) {
         echo "Patched $file ($applied replacements)\n";
     } else {
         fwrite(STDERR, "ERROR: No replacements made in $file\n");
-        $errors++;
     }
 }
 
