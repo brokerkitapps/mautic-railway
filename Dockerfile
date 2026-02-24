@@ -24,7 +24,9 @@ RUN mkdir -p /var/www/html/var/logs \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
 
 # Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
-RUN echo '3,18,33,48 * * * * php -d memory_limit=1024M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=200 > /tmp/stdout 2>&1' >> /templates/mautic_cron
+# Staggered to :08 to avoid overlap with segments:update (:00). Batch size 50
+# (down from 200) to reduce peak memory. 4 runs/hour = 200 contacts/hour throughput.
+RUN echo '8,23,38,53 * * * * php -d memory_limit=512M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=50 > /tmp/stdout 2>&1' >> /templates/mautic_cron
 
 # Fix: Enforce DNC (Do Not Contact) compliance on API email sends
 # Mautic 5.x hardcodes ignoreDNC => true for POST /api/emails/{id}/contact/{id}/send,
@@ -76,4 +78,7 @@ ENV MAUTIC_URL=$MAUTIC_URL
 ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_DATE_TIMEZONE='UTC'
-ENV PHP_INI_VALUE_MEMORY_LIMIT='1024M'
+# 512M per process — with 2 GB container, 3 concurrent cron jobs (1.5 GB) leaves
+# ~500 MB for OS, cron daemon, and headroom. Was 1024M which caused OOM when
+# segments:update overlapped with fetchleads or campaigns:update.
+ENV PHP_INI_VALUE_MEMORY_LIMIT='512M'
