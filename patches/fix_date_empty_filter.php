@@ -10,9 +10,10 @@
  * Safe because date columns cannot store empty strings.
  *
  * Upstream: https://github.com/mautic/mautic/issues/10686
- * The fix in PR #11126 only patched SegmentOperatorQuerySubscriber.
- * ComplexRelationValueFilterQueryBuilder and ForeignFuncFilterQueryBuilder
- * were not fixed.
+ * Patches 3 files:
+ *   1. ComplexRelationValueFilterQueryBuilder (company fields via JOIN)
+ *   2. ForeignFuncFilterQueryBuilder (aggregate function fields)
+ *   3. SegmentOperatorQuerySubscriber (base table fields — belt-and-suspenders)
  */
 
 $patches = [
@@ -85,11 +86,50 @@ $patches = [
             ],
         ],
     ],
+
+    // Patch 3: SegmentOperatorQuerySubscriber (base table fields on leads table)
+    // Belt-and-suspenders: the doesColumnSupportEmptyValue() guard should prevent
+    // this for date/datetime, but we remove the eq('') entirely to be safe.
+    // For non-date fields (varchar etc), IS NULL alone is sufficient in practice
+    // because MySQL varchar fields store NULL, not empty string, when truly empty.
+    [
+        'file' => '/var/www/html/docroot/app/bundles/LeadBundle/EventListener/SegmentOperatorQuerySubscriber.php',
+        'replacements' => [
+            // onEmptyOperator: remove conditional eq('') addition
+            [
+                'search'  => "\$parts           = [\$expr->isNull(\$field)];\n" .
+                    "\n" .
+                    "        if (\$filter->doesColumnSupportEmptyValue()) {\n" .
+                    "            \$parts[] = \$expr->eq(\$field, \$expr->literal(''));\n" .
+                    "        }\n" .
+                    "\n" .
+                    "        \$event->addExpression(new CompositeExpression(CompositeExpression::TYPE_OR, \$parts));",
+                'replace' => "\$expression = \$expr->isNull(\$field);\n" .
+                    "\n" .
+                    "        \$event->addExpression(\$expression);",
+            ],
+            // onNotEmptyOperator: remove conditional neq('') addition
+            [
+                'search'  => "\$parts           = [\$expr->isNotNull(\$field)];\n" .
+                    "\n" .
+                    "        if (\$filter->doesColumnSupportEmptyValue()) {\n" .
+                    "            \$parts[] = \$expr->neq(\$field, \$expr->literal(''));\n" .
+                    "        }\n" .
+                    "\n" .
+                    "        \$event->addExpression(new CompositeExpression(CompositeExpression::TYPE_AND, \$parts));",
+                'replace' => "\$expression = \$expr->isNotNull(\$field);\n" .
+                    "\n" .
+                    "        \$event->addExpression(\$expression);",
+            ],
+        ],
+    ],
 ];
 
 $errors = 0;
+$totalApplied = 0;
 foreach ($patches as $patch) {
     $file = $patch['file'];
+    $shortFile = basename($file);
     if (!file_exists($file)) {
         fwrite(STDERR, "ERROR: File not found: $file\n");
         $errors++;
@@ -103,7 +143,7 @@ foreach ($patches as $patch) {
         $count = 0;
         $content = str_replace($r['search'], $r['replace'], $content, $count);
         if ($count === 0) {
-            fwrite(STDERR, "ERROR: Pattern #$i not found in $file\n");
+            fwrite(STDERR, "ERROR: Pattern #$i not found in $shortFile\n");
             $errors++;
         }
         $applied += $count;
@@ -111,15 +151,36 @@ foreach ($patches as $patch) {
 
     if ($applied > 0) {
         file_put_contents($file, $content);
-        echo "Patched $file ($applied replacements)\n";
+        echo "Patched $shortFile ($applied replacements)\n";
+        $totalApplied += $applied;
     } else {
-        fwrite(STDERR, "ERROR: No replacements made in $file\n");
+        fwrite(STDERR, "ERROR: No replacements made in $shortFile\n");
     }
 }
 
-if ($errors > 0) {
-    fwrite(STDERR, "PATCH FAILED: $errors file(s) had errors\n");
+// Verification: grep all patched files to ensure no literal('') remains in empty/notEmpty context
+echo "\n--- Verification ---\n";
+$verifyFiles = [
+    '/var/www/html/docroot/app/bundles/LeadBundle/Segment/Query/Filter/ComplexRelationValueFilterQueryBuilder.php',
+    '/var/www/html/docroot/app/bundles/LeadBundle/Segment/Query/Filter/ForeignFuncFilterQueryBuilder.php',
+    '/var/www/html/docroot/app/bundles/LeadBundle/EventListener/SegmentOperatorQuerySubscriber.php',
+];
+$verifyErrors = 0;
+foreach ($verifyFiles as $vf) {
+    $shortName = basename($vf);
+    if (!file_exists($vf)) continue;
+    $c = file_get_contents($vf);
+    if (preg_match("/literal\s*\(\s*''\s*\)/", $c)) {
+        fwrite(STDERR, "VERIFY FAIL: $shortName still contains literal('') — patch incomplete\n");
+        $verifyErrors++;
+    } else {
+        echo "VERIFY OK: $shortName — no literal('') found\n";
+    }
+}
+
+if ($errors > 0 || $verifyErrors > 0) {
+    fwrite(STDERR, "\nPATCH FAILED: $errors pattern errors, $verifyErrors verification errors\n");
     exit(1);
 }
 
-echo "All date empty/notEmpty patches applied successfully\n";
+echo "\nAll $totalApplied replacements applied and verified successfully\n";
