@@ -61,5 +61,21 @@ if [ -n "$MAUTIC_SECRET_KEY" ] && [ -f "$CONFIG_DIR/local.php" ]; then
     fi
 fi
 
+# Wait for Railway private networking (Wireguard) to establish.
+# After a new deploy via `railway up`, the container may start before the
+# internal DNS (*.railway.internal) is routable. The upstream Mautic
+# entrypoint checks MySQL immediately and hangs if DNS isn't ready.
+echo "[wrapper] Waiting for private network to establish..."
+for i in $(seq 1 30); do
+    if php -r "try { @new PDO('mysql:host=${MAUTIC_DB_HOST};port=${MAUTIC_DB_PORT:-3306}', '${MAUTIC_DB_USER}', '${MAUTIC_DB_PASSWORD}', [PDO::ATTR_TIMEOUT => 3]); echo 'ok'; } catch (Exception \$e) { exit(1); }" 2>/dev/null | grep -q ok; then
+        echo "[wrapper] MySQL reachable after ${i}s"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "[wrapper] WARNING: MySQL not reachable after 30s, proceeding anyway..."
+    fi
+    sleep 1
+done
+
 echo "[wrapper] Calling original entrypoint..."
 exec /entrypoint-original.sh "$@"
