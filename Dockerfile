@@ -26,7 +26,9 @@ RUN mkdir -p /var/www/html/var/logs \
 # Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
 # Staggered to :08 to avoid overlap with segments:update (:00). Batch size 50
 # (down from 200) to reduce peak memory. 4 runs/hour = 200 contacts/hour throughput.
-RUN echo '8,23,38,53 * * * * php -d memory_limit=512M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=50 > /tmp/stdout 2>&1' >> /templates/mautic_cron
+# Gets its own 1024M limit — the HubSpot plugin is inherently memory-hungry (OOMs at 512M
+# even with --limit=50). Safe because it runs at :08 when segments:update (:00) has finished.
+RUN echo '8,23,38,53 * * * * php -d memory_limit=1024M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=50 > /tmp/stdout 2>&1' >> /templates/mautic_cron
 
 # Fix: Enforce DNC (Do Not Contact) compliance on API email sends
 # Mautic 5.x hardcodes ignoreDNC => true for POST /api/emails/{id}/contact/{id}/send,
