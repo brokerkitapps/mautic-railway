@@ -40,6 +40,14 @@ RUN sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" \
 COPY themes/brokerkit /var/www/html/docroot/themes/brokerkit
 RUN chown -R www-data:www-data /var/www/html/docroot/themes/brokerkit
 
+# Fix MySQL 9.4+ error 1525 "Incorrect DATE value: ''" in segment filters
+# empty/notEmpty operators compare date columns to '' which MySQL 9.4 rejects.
+# Simplify to IS NULL / IS NOT NULL (safe: date cols can't store empty strings).
+# Patches ComplexRelationValueFilterQueryBuilder + ForeignFuncFilterQueryBuilder.
+# Upstream: https://github.com/mautic/mautic/issues/10686
+COPY patches/fix_date_empty_filter.php /tmp/fix_date_empty_filter.php
+RUN php /tmp/fix_date_empty_filter.php && rm /tmp/fix_date_empty_filter.php
+
 # Custom entrypoint wrapper:
 # 1. Fixes Apache MPM conflict (removes mpm_event at runtime)
 # 2. Injects site_url into local.php for cron/worker containers (Railway has no shared volumes)
