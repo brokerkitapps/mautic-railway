@@ -77,5 +77,23 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
+# Fix broken Twig extends in custom themes.
+# Some themes (brokerkit, brokerkit-product-update) used {% extends '@themes/@defaults/...' %}
+# but @defaults doesn't exist. The correct namespace is @MauticCore/Theme.
+# This runtime patch fixes any theme created via the Mautic UI that inherited the bug.
+THEMES_DIR="/var/www/html/docroot/themes"
+if [ -d "$THEMES_DIR" ]; then
+    FIXED=0
+    for twig in $(find "$THEMES_DIR" -name "*.html.twig" -type f 2>/dev/null); do
+        if grep -q '@themes/@defaults' "$twig" 2>/dev/null; then
+            sed -i 's|@themes/@defaults/html/|@MauticCore/Theme/|g' "$twig"
+            FIXED=$((FIXED + 1))
+        fi
+    done
+    if [ "$FIXED" -gt 0 ]; then
+        echo "[wrapper] Fixed $FIXED theme template(s) with broken @themes/@defaults path"
+    fi
+fi
+
 echo "[wrapper] Calling original entrypoint..."
 exec /entrypoint-original.sh "$@"
