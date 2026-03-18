@@ -1,0 +1,7 @@
+{
+  "name": "BrokerKit Newsletter",
+  "author": "BrokerKit Apps",
+  "authorUrl": "https://getbrokerkit.com",
+  "features": ["email"],
+  "builder": ["grapesjsbuilder"]
+}

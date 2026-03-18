@@ -43,8 +43,10 @@ RUN sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" \
 # BrokerKit email themes for GrapesJS builder (MJML)
 COPY themes/brokerkit /var/www/html/docroot/themes/brokerkit
 COPY themes/brokerkit-product-update /var/www/html/docroot/themes/brokerkit-product-update
+COPY themes/brokerkit-newsletter /var/www/html/docroot/themes/brokerkit-newsletter
 RUN chown -R www-data:www-data /var/www/html/docroot/themes/brokerkit \
-    /var/www/html/docroot/themes/brokerkit-product-update
+    /var/www/html/docroot/themes/brokerkit-product-update \
+    /var/www/html/docroot/themes/brokerkit-newsletter
 
 # Fix MySQL 9.4+ error 1525 "Incorrect DATE value: ''" in segment filters
 # empty/notEmpty operators compare date columns to '' which MySQL 9.4 rejects.
