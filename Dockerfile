@@ -30,11 +30,20 @@ COPY media/images/ /var/www/html/docroot/media/images/
 RUN chown -R www-data:www-data /var/www/html/docroot/media/images
 
 # Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
-# Staggered to :08 to avoid overlap with segments:update (:00). Batch size 50
-# (down from 200) to reduce peak memory. 4 runs/hour = 200 contacts/hour throughput.
-# Gets its own 1024M limit — the HubSpot plugin is inherently memory-hungry (OOMs at 512M
+# Staggered to :08 to avoid overlap with segments:update (:00). Batch size 25
+# (down from 50) to reduce peak memory per batch. 4 runs/hour = 100 contacts/hour throughput.
+# Gets its own 2048M limit — the HubSpot plugin is inherently memory-hungry (OOMs at 1024M
 # even with --limit=50). Safe because it runs at :08 when segments:update (:00) has finished.
-RUN echo '8,23,38,53 * * * * php -d memory_limit=1024M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=50 > /tmp/stdout 2>&1' >> /templates/mautic_cron
+RUN echo '8,23,38,53 * * * * php -d memory_limit=2048M /var/www/html/bin/console mautic:integration:fetchleads --integration=Hubspot --limit=25 > /tmp/stdout 2>&1' >> /templates/mautic_cron
+
+# Clean up tracking data older than 2 years — runs daily at 02:01 UTC
+# Deletes: audit_log, notifications, campaign_lead_event_log, page_hits, etc.
+# Does NOT delete contacts, campaigns, or email templates.
+RUN echo '1 2 * * * php /var/www/html/bin/console mautic:maintenance:cleanup --days-old=730 > /tmp/stdout 2>&1' >> /templates/mautic_cron
+
+# Update MaxMind GeoLite2 IP database weekly (Sundays at 04:00 UTC)
+# Requires MaxMind license key configured in Mautic admin > IP Lookup Settings
+RUN echo '0 4 * * 0 php /var/www/html/bin/console mautic:iplookup:download > /tmp/stdout 2>&1' >> /templates/mautic_cron
 
 # Fix: Enforce DNC (Do Not Contact) compliance on API email sends
 # Mautic 5.x hardcodes ignoreDNC => true for POST /api/emails/{id}/contact/{id}/send,
