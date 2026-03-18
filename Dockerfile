@@ -17,11 +17,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends libavif-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure required directories exist (Railway doesn't honor Docker VOLUME declarations)
+# Media dir is ephemeral here — entrypoint-wrapper.sh symlinks it to persistent config volume
 RUN mkdir -p /var/www/html/var/logs \
     /var/www/html/config \
     /var/www/html/docroot/media/files \
     /var/www/html/docroot/media/images \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/config /var/www/html/docroot/media
+
+# Seed media directory with recovered images (lost when media had no persistent volume).
+# On first deploy, entrypoint-wrapper.sh copies these into the persistent config volume.
+COPY media/images/ /var/www/html/docroot/media/images/
+RUN chown -R www-data:www-data /var/www/html/docroot/media/images
 
 # Add HubSpot fetchleads to cron template (syncs HubSpot contacts every 15 min)
 # Staggered to :08 to avoid overlap with segments:update (:00). Batch size 50

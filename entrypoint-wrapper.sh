@@ -77,6 +77,27 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
+# Persist media uploads across deploys.
+# Railway limits one volume per service. The config volume (/var/www/html/config)
+# has ~49GB free. We store media there and symlink so Mautic finds it at the
+# expected path. This survives container rebuilds.
+MEDIA_PERSISTENT="/var/www/html/config/media_persistent"
+MEDIA_TARGET="/var/www/html/docroot/media"
+mkdir -p "$MEDIA_PERSISTENT/images" "$MEDIA_PERSISTENT/files"
+chown -R www-data:www-data "$MEDIA_PERSISTENT"
+# Replace the ephemeral media dir with a symlink to persistent storage
+if [ ! -L "$MEDIA_TARGET" ]; then
+    # First deploy: move any existing files into persistent storage
+    if [ -d "$MEDIA_TARGET" ]; then
+        cp -a "$MEDIA_TARGET"/. "$MEDIA_PERSISTENT"/ 2>/dev/null || true
+        rm -rf "$MEDIA_TARGET"
+    fi
+    ln -sf "$MEDIA_PERSISTENT" "$MEDIA_TARGET"
+    echo "[wrapper] Media directory symlinked to persistent volume"
+else
+    echo "[wrapper] Media symlink already exists"
+fi
+
 # Fix broken Twig extends in custom themes.
 # Some themes (brokerkit, brokerkit-product-update) used {% extends '@themes/@defaults/...' %}
 # but @defaults doesn't exist. The correct namespace is @MauticCore/Theme.
