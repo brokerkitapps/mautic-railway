@@ -61,6 +61,20 @@ if [ -n "$MAUTIC_SECRET_KEY" ] && [ -f "$CONFIG_DIR/local.php" ]; then
     fi
 fi
 
+# Inject mailer_dsn into local.php if MAUTIC_MAILER_DSN env var is set
+# Fix for campaign emails failing with "localhost:25" on cron/worker containers.
+# The web container reads mailer config from its persistent volume, but cron/worker
+# containers create a fresh local.php without mailer settings, so Symfony falls back
+# to smtp://localhost:25 which doesn't exist on Railway.
+if [ -n "$MAUTIC_MAILER_DSN" ] && [ -f "$CONFIG_DIR/local.php" ]; then
+    if ! grep -q "'mailer_dsn'" "$CONFIG_DIR/local.php"; then
+        sed -i "s|);|    'mailer_dsn' => '${MAUTIC_MAILER_DSN}',\n);|" "$CONFIG_DIR/local.php"
+        echo "[wrapper] Injected mailer_dsn into local.php"
+    else
+        echo "[wrapper] local.php already has mailer_dsn"
+    fi
+fi
+
 # Wait for Railway private networking (Wireguard) to establish.
 # After a new deploy via `railway up`, the container may start before the
 # internal DNS (*.railway.internal) is routable. The upstream Mautic
