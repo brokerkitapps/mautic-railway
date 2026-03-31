@@ -75,6 +75,14 @@ if [ -n "$MAUTIC_MAILER_DSN" ] && [ -f "$CONFIG_DIR/local.php" ]; then
     fi
 fi
 
+# Replace broadcast limit placeholder in cron template (BK-3238)
+# Default 300 contacts per run × 12 runs/hr = 3,600 emails/hr
+BROADCAST_LIMIT="${MAUTIC_BROADCAST_LIMIT:-300}"
+if [ -f /templates/mautic_cron ]; then
+    sed -i "s/__BROADCAST_LIMIT__/${BROADCAST_LIMIT}/g" /templates/mautic_cron
+    echo "[wrapper] Broadcast limit set to ${BROADCAST_LIMIT}"
+fi
+
 # Wait for Railway private networking (Wireguard) to establish.
 # After a new deploy via `railway up`, the container may start before the
 # internal DNS (*.railway.internal) is routable. The upstream Mautic

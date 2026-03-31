@@ -41,6 +41,13 @@ RUN echo '8,23,38,53 * * * * php -d memory_limit=2048M /var/www/html/bin/console
 # Does NOT delete contacts, campaigns, or email templates.
 RUN echo '1 2 * * * php /var/www/html/bin/console mautic:maintenance:cleanup --days-old=730 > /tmp/stdout 2>&1' >> /templates/mautic_cron
 
+# Send scheduled segment/broadcast emails every 5 min at :02 offset (BK-3238)
+# Without this, segment emails sit at "pending" indefinitely — only campaign emails
+# (via campaigns:trigger) were working. --limit controls batch size per run;
+# configurable at runtime via MAUTIC_BROADCAST_LIMIT env var (default 300).
+# 300 × 12 runs/hr = 3,600 emails/hr → 8,700 contacts in ~2.5 hours.
+RUN echo '2,7,12,17,22,27,32,37,42,47,52,57 * * * * php /var/www/html/bin/console mautic:broadcasts:send --limit=__BROADCAST_LIMIT__ > /tmp/stdout 2>&1' >> /templates/mautic_cron
+
 # Update MaxMind GeoLite2 IP database weekly (Sundays at 04:00 UTC)
 # Requires MaxMind license key configured in Mautic admin > IP Lookup Settings
 RUN echo '0 4 * * 0 php /var/www/html/bin/console mautic:iplookup:download > /tmp/stdout 2>&1' >> /templates/mautic_cron
