@@ -68,11 +68,13 @@ COPY themes/brokerkit-product-update /var/www/html/docroot/themes/brokerkit-prod
 COPY themes/brokerkit-newsletter /var/www/html/docroot/themes/brokerkit-newsletter
 COPY themes/brokerkit-webinar /var/www/html/docroot/themes/brokerkit-webinar
 COPY themes/brokerkit-brokerage-blueprint /var/www/html/docroot/themes/brokerkit-brokerage-blueprint
+COPY themes/emma-brokerkit /var/www/html/docroot/themes/emma-brokerkit
 RUN chown -R www-data:www-data /var/www/html/docroot/themes/brokerkit \
     /var/www/html/docroot/themes/brokerkit-product-update \
     /var/www/html/docroot/themes/brokerkit-newsletter \
     /var/www/html/docroot/themes/brokerkit-webinar \
-    /var/www/html/docroot/themes/brokerkit-brokerage-blueprint
+    /var/www/html/docroot/themes/brokerkit-brokerage-blueprint \
+    /var/www/html/docroot/themes/emma-brokerkit
 
 # Fix MySQL 9.4+ error 1525 "Incorrect DATE value: ''" in segment filters
 # empty/notEmpty operators compare date columns to '' which MySQL 9.4 rejects.
