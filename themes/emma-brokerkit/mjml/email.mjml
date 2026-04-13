@@ -1,0 +1,40 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-text font-size="14px" color="#000000" line-height="1.5" />
+      <mj-body background-color="#ffffff" />
+    </mj-attributes>
+    <mj-style>
+      a { color: #2d85cc; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#ffffff" width="600px">
+    <!-- Greeting + Body -->
+    <mj-section padding="20px 25px 0 25px">
+      <mj-column>
+        <mj-text>
+          <p>Hi {contactfield=firstname},</p>
+          <p>I wanted to make sure this didn't get buried in your inbox.</p>
+          <p>Are you open to a quick chat before we head to Biloxi about how the <a href="https://getbrokerkit.com/home/real-estate-recruiting-software/">Brokerkit</a> platform can help you recruit and retain agents?</p>
+          <p>Let me know if you have a few minutes to connect or you can <a href="https://info.getbrokerkit.com/meetings/jim-turner/bk-demo">schedule a time here</a>.</p>
+          <p>
+            Best,<br />
+            <strong>Jennifer Turner</strong><br />
+            Director of Growth, Brokerkit
+          </p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Unsubscribe -->
+    <mj-section padding="30px 25px 20px 25px">
+      <mj-column>
+        <mj-text font-size="12px" color="#6b7280">
+          <a href="{unsubscribe_url}" style="color: #6b7280; font-size: 12px;">Unsubscribe</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
