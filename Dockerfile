@@ -52,13 +52,15 @@ RUN echo '0 4 * * 0 php /var/www/html/bin/console mautic:iplookup:download > /tm
 # to the same contact across workflow runs). The base image has shifted paths before, so
 # resolve the controller dynamically instead of hardcoding a docroot location.
 RUN set -eu; \
-    controller="$(find /var/www/html -type f -name EmailApiController.php | sort | head -n 1)"; \
-    if [ -z "$controller" ]; then \
-        echo "EmailApiController.php not found in the Mautic image"; \
+    controllers="$(find /var/www/html -type f -name EmailApiController.php)"; \
+    if [ -z "$controllers" ]; then \
+        echo "EmailApiController.php not found in the Mautic image" >&2; \
         exit 1; \
     fi; \
-    sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" "$controller"; \
-    grep -q "'ignoreDNC'         => false" "$controller"
+    printf '%s\n' "$controllers" | while IFS= read -r controller; do \
+        sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" "$controller"; \
+        grep -q "'ignoreDNC'         => false" "$controller"; \
+    done
 
 # BrokerKit email themes for GrapesJS builder (MJML)
 COPY themes/brokerkit /var/www/html/docroot/themes/brokerkit
