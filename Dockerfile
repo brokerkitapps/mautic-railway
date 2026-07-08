@@ -56,11 +56,18 @@ RUN echo '0 4 * * 0 php /var/www/html/bin/console mautic:iplookup:download > /tm
 # Mautic 5.x hardcodes ignoreDNC => true for POST /api/emails/{id}/contact/{id}/send,
 # treating all API sends as transactional (bypasses unsubscribe list). We change this to
 # false so the API respects DNC while keeping email_type as transactional (allows re-sends
-# to the same contact across workflow runs). See V3 test in brokerboost plan doc.
-RUN sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" \
-    /var/www/html/docroot/app/bundles/EmailBundle/Controller/Api/EmailApiController.php \
-    && grep -q "'ignoreDNC'         => false" \
-    /var/www/html/docroot/app/bundles/EmailBundle/Controller/Api/EmailApiController.php
+# to the same contact across workflow runs). The base image has shifted paths before, so
+# resolve the controller dynamically instead of hardcoding a docroot location.
+RUN set -eu; \
+    controllers="$(find /var/www/html -type f -name EmailApiController.php)"; \
+    if [ -z "$controllers" ]; then \
+        echo "EmailApiController.php not found in the Mautic image" >&2; \
+        exit 1; \
+    fi; \
+    printf '%s\n' "$controllers" | while IFS= read -r controller; do \
+        sed -i "s/'ignoreDNC'         => true/'ignoreDNC'         => false/" "$controller"; \
+        grep -q "'ignoreDNC'         => false" "$controller"; \
+    done
 
 # BrokerKit email themes for GrapesJS builder (MJML)
 COPY themes/brokerkit /var/www/html/docroot/themes/brokerkit
